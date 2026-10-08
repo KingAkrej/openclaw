@@ -382,6 +382,29 @@ describe("handleControlUiHttpRequest", () => {
     expect(responseBody(end)).toContain('data-openclaw-terminal-enabled="true"');
   });
 
+  it.each([undefined, [], ["HTTPS://Images.Example.test.:443"]])(
+    "serves Markdown image origins without changing page CSP: %j",
+    async (remoteImageOrigins) => {
+      const tmp = await createControlUiRoot();
+      const config = { gateway: { controlUi: { remoteImageOrigins } } };
+      const page = await runControlUiRequest(tmp, "/", {
+        headers: { host: "ui.example.test" },
+        config,
+      });
+      const expected = remoteImageOrigins?.length ? ["https://images.example.test."] : [];
+      const csp = String(
+        page.setHeader.mock.calls.findLast((call) => call[0] === "Content-Security-Policy")?.[1],
+      );
+      expect(csp.split("; ").find((directive) => directive.startsWith("img-src "))).toBe(
+        "img-src 'self' data: blob: https:",
+      );
+      const bootstrap = await runControlUiRequest(tmp, CONTROL_UI_BOOTSTRAP_CONFIG_PATH, {
+        config,
+      });
+      expect(parseBootstrapPayload(bootstrap.end).remoteImageOrigins).toEqual(expected);
+    },
+  );
+
   it("uses effective terminal availability instead of raw restart-pending config", async () => {
     const tmp = await createControlUiRoot();
     const { end, setHeader } = await runControlUiRequest(tmp, "/", {

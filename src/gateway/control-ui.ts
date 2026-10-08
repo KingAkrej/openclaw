@@ -64,6 +64,7 @@ import {
   respondPlainText,
 } from "./control-ui-http-utils.js";
 import { serveControlUiIndexHtml } from "./control-ui-index.js";
+import { normalizeControlUiRemoteImageOrigins } from "./control-ui-remote-images.js";
 import { resolveAssistantMediaRoutePath } from "./control-ui-resource-routes.js";
 import { classifyControlUiRequest, isControlUiApprovalDocumentPath } from "./control-ui-routing.js";
 import { isControlUiSharePath, serveControlUiShareDocument } from "./control-ui-share.js";
@@ -768,6 +769,9 @@ export async function handleControlUiHttpRequest(
           : undefined,
       devGitBranch,
       ...resolveControlUiBootstrapPresentation(config),
+      remoteImageOrigins: normalizeControlUiRemoteImageOrigins(
+        config?.gateway?.controlUi?.remoteImageOrigins,
+      ),
       terminalEnabled,
       cliAgentsEnabled: config?.gateway?.cliAgents?.enabled !== false,
       pluginAssetsRequireAuth: opts?.auth !== undefined && opts.auth.mode !== "none",

@@ -6,6 +6,8 @@ import {
 } from "../../../packages/markdown-core/src/assistant-transcript.js";
 import { escapeHtml } from "../../../src/shared/html-escape.js";
 import { t } from "../i18n/index.ts";
+import type { MarkdownRenderEnv } from "./markdown-render-options.ts";
+import { isAllowedRemoteImageSource } from "./remote-image-origins.ts";
 
 function renderAssistantTranscriptRoleMarker(text: string): string {
   return `<code class="assistant-transcript-role">${escapeHtml(text)}</code>`;
@@ -73,7 +75,14 @@ export function installAssistantTranscriptRoleMarkdown(md: MarkdownIt): void {
     const roleMeta = (token.meta as AssistantTranscriptRoleImageMeta | undefined)
       ?.assistantTranscriptRoleImage;
     const linkedImage = linkedImageIndices(tokens).has(index);
-    if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(src) && env?.remoteImages !== true) {
+    const renderEnv = env as Partial<MarkdownRenderEnv> | undefined;
+    const allowedRemoteImage =
+      renderEnv?.remoteImageOrigins === undefined ||
+      isAllowedRemoteImageSource(src, renderEnv.remoteImageOrigins);
+    if (
+      !/^data:image\/[a-z0-9.+-]+;base64,/i.test(src) &&
+      (env?.remoteImages !== true || !allowedRemoteImage)
+    ) {
       const renderedLabel = roleMeta
         ? renderAssistantTranscriptRoleImageLabel(roleMeta.text, roleMeta.spans)
         : escapeHtml(alt);

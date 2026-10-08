@@ -66,6 +66,8 @@ function getSafeLocalStorageMock(): Storage {
 
 beforeEach(() => {
   view = document.createElement("div");
+  markdownRenderMock.mockReset();
+  streamingMarkdownRenderMock.mockReset();
   vi.spyOn(localStorageModule, "getSafeLocalStorage").mockImplementation(getSafeLocalStorageMock);
   vi.spyOn(markdown, "toSanitizedMarkdownHtml").mockImplementation(markdownRenderMock);
   vi.spyOn(markdown, "toStreamingMarkdownParts").mockImplementation(streamingMarkdownRenderMock);
