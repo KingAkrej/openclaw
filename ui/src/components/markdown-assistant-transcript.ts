@@ -64,7 +64,7 @@ export function installAssistantTranscriptRoleMarkdown(md: MarkdownIt): void {
     const token = tokens[index];
     return token ? renderAssistantTranscriptRoleMarker(token.content) : "";
   };
-  md.renderer.rules.image = (tokens, index, _rendererOptions, env) => {
+  md.renderer.rules.image = (tokens, index, _rendererOptions, env: unknown) => {
     const token = tokens[index];
     if (!token) {
       return "";
@@ -75,13 +75,15 @@ export function installAssistantTranscriptRoleMarkdown(md: MarkdownIt): void {
     const roleMeta = (token.meta as AssistantTranscriptRoleImageMeta | undefined)
       ?.assistantTranscriptRoleImage;
     const linkedImage = linkedImageIndices(tokens).has(index);
+    // markdown-it exposes a shared plugin environment without this renderer's option types.
+    // SAFETY: this UI's Markdown owner supplies normalized render options here.
     const renderEnv = env as Partial<MarkdownRenderEnv> | undefined;
     const allowedRemoteImage =
       renderEnv?.remoteImageOrigins === undefined ||
       isAllowedRemoteImageSource(src, renderEnv.remoteImageOrigins);
     if (
       !/^data:image\/[a-z0-9.+-]+;base64,/i.test(src) &&
-      (env?.remoteImages !== true || !allowedRemoteImage)
+      (renderEnv?.remoteImages !== true || !allowedRemoteImage)
     ) {
       const renderedLabel = roleMeta
         ? renderAssistantTranscriptRoleImageLabel(roleMeta.text, roleMeta.spans)
@@ -98,7 +100,7 @@ export function installAssistantTranscriptRoleMarkdown(md: MarkdownIt): void {
     }
     const image = `<img class="markdown-inline-image" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}">`;
     const interactiveImage =
-      linkedImage || env?.interactiveImages !== true
+      linkedImage || renderEnv?.interactiveImages !== true
         ? image
         : `<button class="markdown-inline-image-button" type="button" aria-label="${escapeHtml(t("chat.imageLightbox.open", { title: token.content.trim() ? alt : t("chat.imageLightbox.untitled") }))}">${image}</button>`;
     return roleMeta

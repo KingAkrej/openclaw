@@ -254,7 +254,6 @@ export const FIELD_LABELS: Record<string, string> = {
   "tools.web.fetch.ssrfPolicy.allowRfc2544BenchmarkRange":
     "Web Fetch Allow RFC 2544 Benchmark Range",
   "tools.web.fetch.ssrfPolicy.allowIpv6UniqueLocalRange": "Web Fetch Allow IPv6 Unique Local Range",
-  "gateway.controlUi.remoteImageOrigins": "Control UI Remote Image Origins",
   "mcp.apps": "MCP Apps",
   "mcp.apps.enabled": "MCP Apps Enabled",
   "mcp.apps.sandboxOrigin": "MCP Apps Sandbox Origin",

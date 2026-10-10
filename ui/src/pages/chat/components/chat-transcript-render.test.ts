@@ -60,7 +60,12 @@ describe("chat transcript rendering", () => {
           timestamp: 3_000,
         },
       ]);
-      props.selectedSession = { key: props.sessionKey, visibility, sharingRole: "viewer" };
+      props.selectedSession = {
+        key: props.sessionKey,
+        kind: "direct",
+        visibility,
+        sharingRole: "viewer",
+      };
       const container = document.body.appendChild(document.createElement("div"));
       const transcript = createTestTranscript();
       const rerender = () => {

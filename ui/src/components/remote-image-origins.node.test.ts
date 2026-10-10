@@ -35,7 +35,8 @@ describe("remote image browser requests", () => {
     const revokedMessage = renderMessage([], "guarded-revocation");
     expect(normalizeControlUiRemoteImageOrigins(["http://images.example.test"])).toEqual([]);
 
-    let documentHtml = "<!doctype html><html><head></head><body>" + emptyMessage + "</body></html>";
+    const documentHtml =
+      "<!doctype html><html><head></head><body>" + emptyMessage + "</body></html>";
     const server = createServer((req, res) => {
       if (req.method !== "GET" || req.url !== "/") {
         res.statusCode = 404;
@@ -87,10 +88,8 @@ describe("remote image browser requests", () => {
 
       const response = await page.goto(controlUiOrigin + "/");
       await page.waitForFunction(() => [...document.images].every((image) => image.complete));
-      const cspImgSrc = response
-        ?.headers()
-        ["content-security-policy"].split("; ")
-        .find((directive) => directive.startsWith("img-src "));
+      const csp = response?.headers()["content-security-policy"];
+      const cspImgSrc = csp?.split("; ").find((directive) => directive.startsWith("img-src "));
       expect(cspImgSrc).toBe("img-src 'self' data: blob: https:");
       expect(requests).toEqual([]);
       const pageUrl = page.url();

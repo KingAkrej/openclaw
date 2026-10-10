@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingMessage } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { brotliCompressSync, gzipSync, gunzipSync } from "node:zlib";
@@ -34,6 +34,8 @@ import {
 } from "./control-ui-contract.js";
 import {
   createTrustedProxyHeaders,
+  runRequest,
+  type RequestParams,
   setupTrustedProxyAuth,
 } from "./control-ui.http.test-support.js";
 import {
@@ -116,46 +118,11 @@ describe("handleControlUiHttpRequest", () => {
     expect(params.end).toHaveBeenCalledWith("Not Found");
   }
 
-  type RequestParams = {
-    url: string;
-    method?: "GET" | "HEAD" | "POST";
-    headers?: IncomingMessage["headers"];
-    distinctHeaders?: IncomingMessage["headersDistinct"];
-    remoteAddress?: string;
-  };
   type AuthParams = {
     auth?: ResolvedGatewayAuth;
     trustedProxies?: string[];
     basePath?: string;
   };
-
-  function makeRequest(params: RequestParams): IncomingMessage {
-    const headers = params.headers ?? {};
-    return {
-      url: params.url,
-      method: params.method ?? "GET",
-      headers,
-      headersDistinct:
-        params.distinctHeaders ??
-        Object.fromEntries(
-          Object.entries(headers).map(([name, value]) => [
-            name,
-            Array.isArray(value) ? value : [String(value)],
-          ]),
-        ),
-      socket: { remoteAddress: params.remoteAddress ?? "127.0.0.1" },
-    } as IncomingMessage;
-  }
-
-  async function runRequest<Options>(
-    handler: (req: IncomingMessage, res: ServerResponse, options: Options) => Promise<boolean>,
-    params: RequestParams,
-    options: Options,
-  ) {
-    const response = makeMockHttpResponse();
-    const handled = await handler(makeRequest(params), response.res, options);
-    return { ...response, handled };
-  }
 
   type ControlRequestParams = RequestParams &
     Omit<NonNullable<Parameters<typeof handleControlUiHttpRequest>[2]>, "root"> & {
