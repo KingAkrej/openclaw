@@ -3429,7 +3429,10 @@ describe("loadPageAssistantIdentity", () => {
           embedSandboxMode: "scripts",
         },
       },
-      gateway: { snapshot: { client, connected: true, hello: null } },
+      gateway: {
+        connection: { gatewayUrl: "ws://gateway.example.test" },
+        snapshot: { client, connected: true, hello: null },
+      },
       chatSubmissions: createChatSubmissions(),
       sessions: { refresh: vi.fn().mockResolvedValue(undefined) },
     } as unknown as ApplicationContext;

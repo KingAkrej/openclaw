@@ -101,7 +101,7 @@ describe("remote image browser requests", () => {
           getAttribute: (name: string) =>
             name === CONTROL_UI_TERMINAL_ENABLED_ATTRIBUTE ? "true" : null,
           hasAttribute: () => false,
-          style: { getPropertyValue: () => "" },
+          style: { getPropertyValue: () => "", removeProperty: vi.fn(), setProperty: vi.fn() },
         },
       });
       const fetchMock = vi
