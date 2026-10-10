@@ -907,6 +907,7 @@ export async function handleControlUiHttpRequest(
         publicAssetBuildId,
         opts?.sessionEntryPath,
         opts?.isSessionEntryCurrent,
+        opts?.auth?.mode === "trusted-proxy",
       );
       return true;
     }
