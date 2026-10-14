@@ -36,7 +36,6 @@ import {
   readChatPaneMutationAccess,
   readChatPublicationAccess,
   renderChatPaneComposerControls,
-  openChatPaneModelPicker,
 } from "./chat-pane-session-controls.ts";
 import { resolveChatPaneUserPresentation } from "./chat-pane-session-presentation.ts";
 import {
@@ -596,12 +595,10 @@ export class ChatPaneRuntime extends ChatPaneLayoutRender {
       }),
       ...createChatPaneRunRecoveryActions(state, {
         canSend: composerAvailability.canSend && !catalogKey && !suggestionViewer,
-        canChangeModel: mutationAccess.model.allowed && !catalogKey && !suggestionViewer,
         isCurrent: () =>
           this.state === state && this.connectionGeneration === selectionConnectionGeneration,
         latestFailedRunId: () =>
           chatFailureRunId(state.chatRunError, selectedChatSessionRow(state)),
-        openModelPicker: () => openChatPaneModelPicker(state),
       }),
       onUseSystemDefaultMicrophone: state.realtimeTalkUseSystemDefault ?? undefined,
       onToggleRealtimeTalk: () => (providerPaused ? undefined : void state.toggleRealtimeTalk()),
