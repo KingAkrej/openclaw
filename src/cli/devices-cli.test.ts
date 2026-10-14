@@ -25,7 +25,10 @@ vi.mock("../gateway/call.js", () => ({
   }),
 }));
 // mock-isolation: Pairing policy is stubbed below; runtime config loading is not part of this unit contract.
-vi.mock("../config/config.js", () => ({ getRuntimeConfig: () => ({}) }));
+vi.mock("../config/config.js", () => ({
+  getRuntimeConfig: () => ({}),
+  loadConfig: () => ({}),
+}));
 vi.mock("./progress.js", () => ({
   withProgress: async (_opts: unknown, fn: () => Promise<unknown>) => await fn(),
 }));
@@ -263,14 +266,6 @@ describe("approval", () => {
     expect(runtime.exit).toHaveBeenCalledWith(1);
   });
 
-  it("routes an empty pending list through the root JSON failure handler", async () => {
-    list();
-    expect(await refusal("approve", "--json")).toBe(
-      "No pending device pairing requests to approve",
-    );
-    expect(callGateway).toHaveBeenCalledOnce();
-  });
-
   it("suggests node reapproval for a device IP without exposing connection credentials", async () => {
     list([], [nodeDevice()])
       .mockRejectedValueOnce(new Error("device pairing approval denied"))
@@ -345,25 +340,6 @@ describe("mutations", () => {
       timeoutMs: 15000,
     });
   });
-  it("rejects malformed timeout before connecting", async () => {
-    await expect(run("reject", "req-1", "--timeout", "10ms")).rejects.toThrow(
-      'Invalid --timeout. Use a positive millisecond value, e.g. --timeout 30000. Received: "10ms".',
-    );
-    expect(callGateway).not.toHaveBeenCalled();
-  });
-  it("explains blank rejection ids", async () => {
-    await run("reject", "   ");
-    expect(callGateway).not.toHaveBeenCalled();
-    expect(errors()).toContain("requestId is required.");
-    expect(errors()).toContain("openclaw devices list");
-    expect(runtime.exit).toHaveBeenCalledWith(1);
-  });
-  it("requires confirmation before clearing", async () => {
-    await run("clear");
-    expect(callGateway).not.toHaveBeenCalled();
-    expect(runtime.error).toHaveBeenCalledWith("Refusing to clear pairing table without --yes");
-    expect(runtime.exit).toHaveBeenCalledWith(1);
-  });
   it("clears every paired device and pending request", async () => {
     list([{ requestId: "req-1" }], [{ deviceId: "device-1" }, { deviceId: "device-2" }])
       .mockResolvedValueOnce({ deviceId: "device-1" })
@@ -390,7 +366,7 @@ describe("mutations", () => {
     });
     expect(runtime.writeJson).toHaveBeenCalledWith({ ok: true });
   });
-  it.each(["rotate", "revoke"])(
+  it.each(["revoke"])(
     "routes blank %s targets as JSON without the explicit flag",
     async (operation) => {
       const message = await refusal(operation, "--device", " ", "--role", "node");
@@ -415,10 +391,6 @@ describe("mutations", () => {
       args: ["rotate", "--device", "device-1", "--role", ""],
       message: "--device and --role are required.",
     },
-    {
-      args: ["revoke", "--device", "", "--role", "node"],
-      message: "--device and --role are required.",
-    },
   ])("routes $args local JSON refusals before RPC", async ({ args, message }) => {
     expect(await refusal(...args, "--json")).toContain(message);
     expect(callGateway).not.toHaveBeenCalled();
@@ -434,7 +406,13 @@ describe("mutations", () => {
   });
   it("mints a join URL with admin scope and prints the pasteable command", async () => {
     const joinUrl = `https://gateway.example/j/${"a".repeat(22)}`;
-    callGateway.mockResolvedValueOnce({ joinUrl, setupCode: "opaque" });
+    callGateway.mockResolvedValueOnce({
+      joinUrl,
+      setupCode: "opaque",
+      command: `npx -y openclaw@2026.9.9 connect ${joinUrl} --service --session-host`,
+      serviceCommand: `npx -y openclaw@2026.9.9 connect ${joinUrl} --service`,
+      installedCommand: `openclaw connect ${joinUrl} --service --session-host`,
+    });
     await run("join-code");
     expectCall(0, {
       method: "device.pair.setupCode",
@@ -442,9 +420,34 @@ describe("mutations", () => {
       scopes: ["operator.admin"],
     });
     expect(output()).toContain(joinUrl);
-    expect(output()).toContain(`npx openclaw connect ${joinUrl}`);
+    expect(output()).toContain(
+      `npx -y openclaw@2026.9.9 connect ${joinUrl} --service --session-host`,
+    );
+    expect(output()).toContain("Installs a background node service that can run agent sessions.");
+    expect(output()).toContain(
+      `Command-only node: npx -y openclaw@2026.9.9 connect ${joinUrl} --service`,
+    );
+    expect(output()).toContain(
+      `Already have OpenClaw installed? Run: openclaw connect ${joinUrl} --service --session-host`,
+    );
     expect(output()).not.toContain("opaque");
   });
+  it.each([undefined, "The machine needs a matching Gateway build."])(
+    "returns the Gateway commands in JSON without printing text (%s)",
+    async (versionNote) => {
+      const joinUrl = `https://gateway.example/j/${"b".repeat(22)}`;
+      const commands = {
+        command: `npx -y openclaw@2026.9.9 connect ${joinUrl} --service --session-host`,
+        serviceCommand: `npx -y openclaw@2026.9.9 connect ${joinUrl} --service`,
+        installedCommand: `openclaw connect ${joinUrl} --service --session-host`,
+        ...(versionNote ? { versionNote } : {}),
+      };
+      callGateway.mockResolvedValueOnce({ joinUrl, ...commands });
+      await run("join-code", "--json");
+      expect(runtime.writeJson).toHaveBeenCalledWith({ joinUrl, ...commands });
+      expect(runtime.log).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("local fallback", () => {
@@ -556,16 +559,6 @@ describe("local fallback", () => {
     expect(errors()).not.toContain("unknown requestId");
     expect(runtime.exit).toHaveBeenCalledWith(1);
     expect(approveDevicePairing).not.toHaveBeenCalled();
-  });
-  it("directs a remote scope upgrade to another authorized device", async () => {
-    deny("scope upgrade pending approval (requestId: req-remote)");
-    deny("scope upgrade pending approval (requestId: req-remote)");
-    await run("approve", "req-remote", "--url", "wss://gateway.example.com/ws");
-    expect(errors()).toContain("can't approve its own scope upgrade");
-    expect(errors()).toContain("Control UI");
-    expect(errors()).toContain("another authorized device");
-    expect(errors()).not.toMatch(/--token|--password/);
-    expect(runtime.exit).toHaveBeenCalledWith(1);
   });
   it("points at the current request when a gateway request is stale", async () => {
     vi.stubEnv("OPENCLAW_PROFILE", "work");

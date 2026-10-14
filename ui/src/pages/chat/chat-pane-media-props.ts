@@ -1,7 +1,7 @@
 import { resolveArtifactDownloadSource } from "../../api/artifact-download.ts";
 import { resolveControlUiAuthToken } from "../../app/control-ui-auth.ts";
 import type { ChatPageHost } from "./chat-state-host.ts";
-import type { ChatProps } from "./chat-view.ts";
+import type { ChatProps } from "./chat-view.tsx";
 import { resolveChatLinkFaviconFetcher } from "./link-favicon-loader.ts";
 
 export function chatPaneMediaProps(state: ChatPageHost) {

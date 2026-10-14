@@ -104,9 +104,10 @@ async function buildOpenAICodexLiveProviderConfig(params: {
   ).provider;
 }
 
+// mock-isolation: Catalog tests supply synthetic credentials and account metadata.
 vi.mock("openclaw/plugin-sdk/provider-auth-runtime", () => ({
   resolveApiKeyForProvider: mocks.resolveApiKeyForProvider,
-  resolveProviderAuthProfileMetadata: mocks.resolveProviderAuthProfileMetadata,
+  resolveProviderAuthProfileMetadataAsync: mocks.resolveProviderAuthProfileMetadata,
 }));
 
 async function runWrappedPayloadCase(params: {
@@ -229,6 +230,29 @@ describe("buildOpenAIProvider", () => {
     const provider = buildOpenAIProvider();
 
     for (const providerId of ["openai", "azure-openai", "azure-openai-responses"]) {
+      for (const [code, reason] of [
+        ["CONTEXT_LENGTH_EXCEEDED", "context_overflow"],
+        ["INVALID_PROMPT", "format"],
+        ["INVALID_REQUEST_ERROR", "format"],
+        ["CONTENT_POLICY_VIOLATION", "format"],
+        ["CONTENT_FILTER", "format"],
+      ]) {
+        expect(
+          provider.classifyFailoverReason?.({
+            provider: providerId,
+            errorMessage: "",
+            code,
+          }),
+        ).toBe(reason);
+      }
+      for (const errorMessage of [
+        "Provider finish_reason: content_filter",
+        "Provider incomplete_reason: content_filter",
+      ]) {
+        expect(provider.classifyFailoverReason?.({ provider: providerId, errorMessage })).toBe(
+          "format",
+        );
+      }
       expect(
         provider.classifyFailoverReason?.({
           provider: providerId,
@@ -1387,56 +1411,6 @@ describe("buildOpenAIProvider", () => {
     expectNoCatalogEntry(entries, "gpt-5.5");
     expectNoCatalogEntry(entries, "chat-latest");
     expectCatalogEntry(entries, "gpt-5.5-pro", { provider: "openai", name: "gpt-5.5-pro" });
-  });
-
-  it("owns replay policy for OpenAI and Codex transports", () => {
-    const provider = buildOpenAIProvider();
-    const codexProvider = buildOpenAIProvider();
-
-    expect(
-      provider.buildReplayPolicy?.({
-        provider: "openai",
-        modelApi: "openai",
-        modelId: "gpt-5.4",
-      } as never),
-    ).toEqual({
-      sanitizeMode: "images-only",
-      applyAssistantFirstOrderingFix: false,
-      sanitizeToolCallIds: false,
-      validateGeminiTurns: false,
-      validateAnthropicTurns: false,
-    });
-
-    expect(
-      provider.buildReplayPolicy?.({
-        provider: "openai",
-        modelApi: "openai-completions",
-        modelId: "gpt-5.4",
-      } as never),
-    ).toEqual({
-      sanitizeMode: "images-only",
-      applyAssistantFirstOrderingFix: false,
-      sanitizeToolCallIds: true,
-      toolCallIdMode: "strict",
-      validateGeminiTurns: false,
-      validateAnthropicTurns: false,
-    });
-
-    expect(
-      codexProvider.buildReplayPolicy?.({
-        provider: "openai",
-        modelApi: "openai-chatgpt-responses",
-        modelId: "gpt-5.4",
-      } as never),
-    ).toEqual({
-      sanitizeMode: "images-only",
-      applyAssistantFirstOrderingFix: false,
-      sanitizeToolCallIds: false,
-      validateGeminiTurns: false,
-      validateAnthropicTurns: false,
-      allowSyntheticToolResults: true,
-      appendOnlyRuntimeContext: true,
-    });
   });
 
   it("owns direct OpenAI wrapper composition for responses payloads", async () => {

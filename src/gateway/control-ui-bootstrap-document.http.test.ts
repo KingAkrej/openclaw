@@ -7,15 +7,37 @@ import { useAutoCleanupTempDirTracker } from "../../test/helpers/temp-dir.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { escapeHtml } from "../shared/html-escape.js";
 import { CONTROL_UI_BOOTSTRAP_CONFIG_ATTRIBUTE } from "./control-ui-bootstrap-contract.js";
+import * as pluginAssets from "./control-ui-plugin-assets.js";
 import { handleControlUiHttpRequest } from "./control-ui.js";
 import { makeMockHttpResponse } from "./test-http-response.js";
 
 const dirs = useAutoCleanupTempDirTracker(afterEach);
 afterEach(() => vi.restoreAllMocks());
 
-it.each([undefined, ["https://images.example", "http://blocked.example"]])(
-  "embeds the admitted endpoint payload and image policy %j, with safe attributes and private caching",
-  async (remoteImageOrigins) => {
+it.each(
+  [false, true].flatMap((catalogFails) =>
+    [undefined, ["https://images.example", "http://blocked.example"]].map((remoteImageOrigins) => ({
+      catalogFails,
+      remoteImageOrigins,
+    })),
+  ),
+)(
+  "embeds admitted image policy $remoteImageOrigins (catalog failure: $catalogFails)",
+  async ({ catalogFails, remoteImageOrigins }) => {
+    const plugin = {
+      pluginId: "review",
+      name: "Review",
+      revision: "one",
+      entryUrl: "/control/__openclaw__/plugins/control-ui/review/one/index.js",
+      styles: ["/control/__openclaw__/plugins/control-ui/review/one/index.css"],
+      imports: ["/control/__openclaw__/plugins/control-ui/review/one/chunk.js"],
+    };
+    const catalog = vi.spyOn(pluginAssets, "listControlUiPluginCatalog");
+    if (catalogFails) {
+      catalog.mockRejectedValue(new Error("plugin registry is no longer active"));
+    } else {
+      catalog.mockResolvedValue({ revision: "catalog-one", plugins: [plugin], diagnostics: [] });
+    }
     const root = dirs.make("bootstrap-document-");
     fs.writeFileSync(
       path.join(root, "index.html"),
@@ -54,6 +76,7 @@ it.each([undefined, ["https://images.example", "http://blocked.example"]])(
       assistantAvatar: "🔭",
       terminalEnabled: false,
       remoteImageOrigins: remoteImageOrigins ? ["https://images.example"] : [],
+      pluginControlUiModules: catalogFails ? [] : [plugin],
     });
     const document = await request("/control/chat/main/topic", true, true);
     expect(document.res.statusCode).toBe(200);

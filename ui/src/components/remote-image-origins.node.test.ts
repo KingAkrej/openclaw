@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { chromium } from "playwright";

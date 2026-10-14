@@ -536,7 +536,7 @@ export const CORE_GATEWAY_METHOD_SPECS = [
   ["secrets.store.set", null, "operator.admin", "2026.8", CONTROL_PLANE_WRITE],
   ["secrets.store.delete", null, "operator.admin", "2026.8", CONTROL_PLANE_WRITE],
   ["users.prefs.get", "users", "operator.read", "2026.8"],
-  ["users.prefs.set", "users", "operator.write", "2026.8"],
+  ["users.prefs.set", "users", "operator.read", "2026.8"],
   ["projects.add", "projects", "operator.write", "2026.8", CONTROL_PLANE_WRITE],
   [
     "projects.searchRemote",
@@ -724,10 +724,19 @@ export const CORE_GATEWAY_METHOD_SPECS = [
   ["skills.workshop.archive", "skills", "operator.admin", "2026.9"],
   ["skills.workshop.restore", "skills", "operator.admin", "2026.9"],
   ["skills.workshop.undo", "skills", "operator.admin", "2026.9"],
+  ["memory.search.owner", "memory-search", "operator.admin", "2026.9"],
   ["secrets.store.import", null, "operator.admin", "2026.9", CONTROL_PLANE_WRITE],
   ["secrets.store.allowedHosts", null, "operator.admin", "2026.9", CONTROL_PLANE_WRITE],
   ["users.background.get", "users", "operator.read", "2026.9"],
   ["users.background.upload", "users", "operator.write", "2026.9"],
   ["users.background.remove", "users", "operator.write", "2026.9"],
   ["debugProxy.capture", "debug-proxy", "operator.admin", "2026.9"],
+  ["openclaw.setup.auto", "system-agent", "operator.admin", "2026.10"],
+  [
+    "environments.adoptSuggestedProfile",
+    "environments",
+    "operator.admin",
+    "2026.10",
+    CONTROL_PLANE_WRITE,
+  ],
 ] as const satisfies readonly CoreGatewayMethodSpecRow[];

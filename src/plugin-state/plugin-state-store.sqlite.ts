@@ -1,20 +1,25 @@
 // Plugin state SQLite helpers persist plugin state in the OpenClaw state database.
-import type { DatabaseSync } from "node:sqlite";
+
 import { err, ok, type Result } from "@openclaw/normalization-core/result";
 import type { ExpressionBuilder } from "kysely";
 import { executeSqliteQuerySync } from "../infra/kysely-sync.js";
+import type { EngineConnection } from "../infra/sql-connection.js";
+import { sqlPublicationAnchor } from "../infra/sql-connection.js";
 import { isSqliteCorruptionError } from "../infra/sqlite-error-diagnostics.js";
 import { normalizeSqliteNumber } from "../infra/sqlite-number.js";
 import { runSqliteImmediateTransactionSync } from "../infra/sqlite-transaction.js";
+import { readTrackedStateDatabaseIdentity } from "../state/openclaw-state-db-handle.js";
 import type { DB } from "../state/openclaw-state-db.generated.js";
 import {
   closeOpenClawStateDatabase,
-  closeOpenClawStateDatabaseAsync,
   type OpenClawStateDatabaseOptions,
 } from "../state/openclaw-state-db.js";
 import { resolveOpenClawStateSqlitePath } from "../state/openclaw-state-db.paths.js";
 import { invalidatePluginStateMutation } from "./plugin-state-operation-epochs.js";
-import { pluginStatePublication } from "./plugin-state-publication.js";
+import {
+  pluginStatePublication,
+  recordPluginStateReadDependency,
+} from "./plugin-state-publication.js";
 import {
   runWriteTransaction,
   withPluginStateDatabaseReadOnly,
@@ -233,12 +238,25 @@ export function pluginStateLookup(params: {
   key: string;
   env?: NodeJS.ProcessEnv;
 }): unknown {
-  return readPluginState(
+  let opened = false;
+  const dependency = { pluginId: params.pluginId, namespace: params.namespace, keys: [params.key] };
+  const result = readPluginState(
     "lookup",
     "Failed to read plugin state entry.",
-    (store) => lookupPluginStateEntry(store, params),
+    (store) => {
+      opened = true;
+      recordPluginStateReadDependency({
+        ...dependency,
+        identity: readTrackedStateDatabaseIdentity(sqlPublicationAnchor(store.db))?.key,
+      });
+      return lookupPluginStateEntry(store, params);
+    },
     params.env,
   );
+  if (!opened) {
+    recordPluginStateReadDependency(dependency);
+  }
+  return result;
 }
 
 export function pluginStateLookupMany(params: {
@@ -250,14 +268,25 @@ export function pluginStateLookupMany(params: {
   if (params.keys.length === 0) {
     return [];
   }
-  return (
-    readPluginState(
-      "lookup",
-      "Failed to read plugin state entries.",
-      (store) => lookupPluginStateEntries(store, params),
-      params.env,
-    ) ?? params.keys.map(() => ok(undefined))
+  let opened = false;
+  const dependency = { pluginId: params.pluginId, namespace: params.namespace, keys: params.keys };
+  const result = readPluginState(
+    "lookup",
+    "Failed to read plugin state entries.",
+    (store) => {
+      opened = true;
+      recordPluginStateReadDependency({
+        ...dependency,
+        identity: readTrackedStateDatabaseIdentity(sqlPublicationAnchor(store.db))?.key,
+      });
+      return lookupPluginStateEntries(store, params);
+    },
+    params.env,
   );
+  if (!opened) {
+    recordPluginStateReadDependency(dependency);
+  }
+  return result ?? params.keys.map(() => ok(undefined));
 }
 
 export function pluginStateConsume(params: {
@@ -340,7 +369,7 @@ export function pluginStateDeleteEntriesIfUnchanged(params: {
   pluginId: string;
   namespace: string;
   entries: readonly PluginDoctorRawStateEntry[];
-  assertOwnedInTransaction: (database: DatabaseSync) => void;
+  assertOwnedInTransaction: (database: EngineConnection) => void;
   env?: NodeJS.ProcessEnv;
 }): { deleted: number; changed: number } {
   if (params.entries.length > MAX_PLUGIN_STATE_BULK_DELETE_ENTRIES) {
@@ -503,5 +532,3 @@ export function getPluginStateCapacity(
 }
 
 export const closePluginStateDatabase: () => void = closeOpenClawStateDatabase;
-
-export const closePluginStateDatabaseAsync: () => Promise<void> = closeOpenClawStateDatabaseAsync;
