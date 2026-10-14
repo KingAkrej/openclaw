@@ -53,11 +53,14 @@ suite.define(() => {
         await sidebar.waitFor({ state: "visible" });
         await expect.poll(() => selected.getAttribute("data-navigation-view")).toBe("online");
         await users.click();
-        expect(await sidebar.isVisible()).toBe(true);
         await expect.poll(() => selected.getAttribute("data-navigation-view")).toBe("online");
+        expect(await sidebar.isVisible()).toBe(true);
         await page.keyboard.press("ControlOrMeta+B");
         await sidebar.waitFor({ state: "hidden" });
         await expect.poll(() => selected.count()).toBe(0);
+        await expect
+          .poll(() => users.evaluate((element) => element === document.activeElement))
+          .toBe(true);
         await page.keyboard.press("ControlOrMeta+B");
         await sidebar.waitFor({ state: "visible" });
         await expect.poll(() => selected.getAttribute("data-navigation-view")).toBe("online");
