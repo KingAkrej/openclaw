@@ -30,6 +30,7 @@ type ApplicationConfig = {
   remoteImageOrigins: readonly string[];
   communityInvite: boolean;
   chatBubblesEnabled?: boolean;
+  composerPredictionsEnabled?: boolean;
   /** Null until the serving Gateway publishes its bootstrap policy. */
   newSessionModelDefaults?: "last-used" | "configured" | null;
   terminalEnabled: boolean;
@@ -62,6 +63,7 @@ const DEFAULT_APPLICATION_CONFIG: ApplicationConfig = {
   remoteImageOrigins: [],
   communityInvite: false,
   chatBubblesEnabled: false,
+  composerPredictionsEnabled: false,
   newSessionModelDefaults: null,
   terminalEnabled: readDocumentTerminalEnabled() ?? false,
   uploadsEnabled: true,
@@ -114,6 +116,7 @@ function normalizeApplicationConfig(parsed: ControlUiBootstrapConfig): Applicati
     remoteImageOrigins: parsed.remoteImageOrigins ?? [],
     communityInvite: parsed.communityInvite === true,
     chatBubblesEnabled: parsed.chatBubblesEnabled === true,
+    composerPredictionsEnabled: parsed.composerPredictionsEnabled === true,
     newSessionModelDefaults: parsed.newSessionModelDefaults ?? "last-used",
     terminalEnabled: Boolean(parsed.terminalEnabled),
     uploadsEnabled: parsed.uploadsEnabled !== false,
