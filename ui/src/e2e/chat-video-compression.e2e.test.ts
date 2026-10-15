@@ -121,9 +121,12 @@ suite.define(() => {
       });
       await page.getByRole("button", { name: "Compress to fit", exact: true }).click();
       await page
-        .getByText("Could not compress this video. Try again or choose a smaller file.", {
-          exact: true,
-        })
+        .getByRole("status")
+        .and(
+          page.getByText("Could not compress this video. Try again or choose a smaller file.", {
+            exact: true,
+          }),
+        )
         .waitFor();
       await page.getByRole("button", { name: "Remove invalid.mp4", exact: true }).click();
       // Exercise the real worker and codec negotiation with a missing WebCodecs
@@ -142,9 +145,12 @@ suite.define(() => {
       });
       await page.getByRole("button", { name: "Compress to fit", exact: true }).click();
       await page
-        .getByText(
-          "This browser cannot compress this video with its audio. Try another browser or a smaller file.",
-          { exact: true },
+        .getByRole("status")
+        .and(
+          page.getByText(
+            "This browser cannot compress this video with its audio. Try another browser or a smaller file.",
+            { exact: true },
+          ),
         )
         .waitFor();
       expect(await gateway.getRequests("chat.send")).toEqual([]);
